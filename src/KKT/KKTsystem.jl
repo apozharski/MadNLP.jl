@@ -256,6 +256,8 @@ end
 compress_hessian!(kkt::AbstractKKTSystem) = nothing
 
 include("rhs.jl")
+# Type of KKT vector:
+kkt_vec(kkt::AbstractKKTSystem) = UnreducedKKTVector
 include("implicit_rhs.jl")
 include("Dense/augmented.jl")
 include("Dense/condensed.jl")

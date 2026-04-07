@@ -169,12 +169,14 @@ function MadNLPSolver(nlp::AbstractNLPModel{T,VT}; kwargs...) where {T, VT}
     f = PrimalVector(VT, nx, ns, ind_lb, ind_ub)
     x_trial = PrimalVector(VT, nx, ns, ind_lb, ind_ub)
 
-    d = UnreducedKKTVector(VT, n, m, nlb, nub, ind_lb, ind_ub)
-    p = UnreducedKKTVector(VT, n, m, nlb, nub, ind_lb, ind_ub)
-    _w1 = UnreducedKKTVector(VT, n, m, nlb, nub, ind_lb, ind_ub)
-    _w2 = UnreducedKKTVector(VT, n, m, nlb, nub, ind_lb, ind_ub)
-    _w3 = UnreducedKKTVector(VT, n, m, nlb, nub, ind_lb, ind_ub)
-    _w4 = UnreducedKKTVector(VT, n, m, nlb, nub, ind_lb, ind_ub)
+    KKTVec = kkt_vec(kkt)
+
+    d = KKTVec(VT, n, m, nlb, nub, ind_lb, ind_ub)
+    p = KKTVec(VT, n, m, nlb, nub, ind_lb, ind_ub)
+    _w1 = KKTVec(VT, n, m, nlb, nub, ind_lb, ind_ub)
+    _w2 = KKTVec(VT, n, m, nlb, nub, ind_lb, ind_ub)
+    _w3 = KKTVec(VT, n, m, nlb, nub, ind_lb, ind_ub)
+    _w4 = KKTVec(VT, n, m, nlb, nub, ind_lb, ind_ub)
 
     jacl = VT(undef,n)
     c_trial = VT(undef, m)

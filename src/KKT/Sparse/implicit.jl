@@ -36,8 +36,6 @@ struct ImplicitKKTSystem{T, VT, MT, QN, LS, VI, VI32} <: AbstractKKTSystem{T, VT
     linear_solver::LS
     quasi_newton::QN
 
-    w_buffer::VT
-
     # Info
     n_var::Int
     n_slack::Int
@@ -149,7 +147,6 @@ function create_kkt_system(
         aug_com; opt = opt_linear_solver
     )
 
-    w_buffer = ImplicitKKTVector(n, n_slack, m, n_B)
 
     return ImplicitKKTSystem(
         hess, hess_raw, hess_com, hess_csc_map,
@@ -160,7 +157,6 @@ function create_kkt_system(
         l_lower,u_lower,
         _linear_solver,
         quasi_newton,
-        w_buffer,
         n,
         n_slack,
         ind_ineq,
@@ -171,7 +167,7 @@ end
 
 num_variables(kkt::ImplicitKKTSystem) = kkt.n_var
 
-function solve_kkt!(kkt::ImplicitKKTSystem, w::AbstractKKTVector{T,VT})
+function solve_kkt!(kkt::ImplicitKKTSystem, w::AbstractKKTVector{T,VT}) where {T,VT}
     xp = kkt.w_buffer.xp
     v = kkt.w_buffer.v
     y = kkt.w_buffer.y
@@ -181,3 +177,5 @@ function solve_kkt!(kkt::ImplicitKKTSystem, w::AbstractKKTVector{T,VT})
     xp .= w_x
 
 end
+
+kkt_vec(kkt::ImplicitKKTSystem) = ImplicitKKTVector
