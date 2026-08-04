@@ -38,7 +38,7 @@ include("quasi_newton.jl")
 include(joinpath("KKT", "KKTsystem.jl"))
 include(joinpath("LinearSolvers", "linearsolvers.jl"))
 include(joinpath("IPM", "IPM.jl"))
-include("precompile.jl")
+#include("precompile.jl")
 
 madsuite(::Val{:madnlp}, args...; kwargs...) = madnlp(args...; kwargs...)
 

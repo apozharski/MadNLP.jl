@@ -112,6 +112,131 @@ include("barrier.jl")
 
 
 """
+    MadNLPSolver(nlp::AbstractNLPModel{T, VT}, MadNLPOptions{T}) where {T, VT}
+
+Instantiate a new `MadNLPSolver` associated to the nonlinear program
+`nlp::AbstractNLPModel`. The options are passed as optional arguments.
+
+The constructor allocates all the memory required in the interior-point
+algorithm, so the main algorithm remains allocation free.
+
+"""
+function MadNLPSolver(nlp::AbstractNLPModel{T,VT}, opt_ipm::MadNLPOptions{T}) where {T, VT}
+    logger = MadNLPLogger(
+        print_level=opt_ipm.print_level,
+        file_print_level=opt_ipm.file_print_level,
+        file = opt_ipm.output_file == "" ? nothing : open(opt_ipm.output_file,"w+"),
+    )
+    @trace(logger,"Logger is initialized.")
+    cnt = MadNLPCounters(start_time=time())
+    cb = create_callback(
+        opt_ipm.callback,
+        nlp;
+        fixed_variable_treatment=opt_ipm.fixed_variable_treatment,
+        equality_treatment=opt_ipm.equality_treatment,
+    )
+
+    # generic options
+    opt_ipm.disable_garbage_collector &&
+        (GC.enable(false); @warn(logger,"Julia garbage collector is temporarily disabled"))
+    set_blas_num_threads(opt_ipm.blas_num_threads; permanent=true)
+    @trace(logger,"Initializing variables.")
+
+    ind_lb = cb.ind_lb
+    ind_ub = cb.ind_ub
+
+    ns = length(cb.ind_ineq)
+    nx = n_variables(cb)
+    n = nx+ns
+    m = n_constraints(cb)
+    nlb = length(ind_lb)
+    nub = length(ind_ub)
+
+    @trace(logger,"Initializing KKT system.")
+    kkt = create_kkt_system(
+        opt_ipm.kkt_system,
+        cb,
+        opt_ipm.linear_solver;
+        hessian_approximation=opt_ipm.hessian_approximation,
+        opt_linear_solver=opt_ipm.linear_solver_options,
+        qn_options=opt_ipm.quasi_newton_options,
+        opt_ipm.kkt_options...,
+    )
+
+    @trace(logger,"Initializing iterative solver.")
+    iterator = opt_ipm.iterator(kkt; cnt = cnt, logger = logger, opt = opt_ipm.iterator_options)
+
+    x = PrimalVector(VT, nx, ns, ind_lb, ind_ub)
+    xl = PrimalVector(VT, nx, ns, ind_lb, ind_ub)
+    xu = PrimalVector(VT, nx, ns, ind_lb, ind_ub)
+    zl = PrimalVector(VT, nx, ns, ind_lb, ind_ub)
+    zu = PrimalVector(VT, nx, ns, ind_lb, ind_ub)
+    f = PrimalVector(VT, nx, ns, ind_lb, ind_ub)
+    x_trial = PrimalVector(VT, nx, ns, ind_lb, ind_ub)
+
+    d = UnreducedKKTVector(VT, n, m, nlb, nub, ind_lb, ind_ub)
+    p = UnreducedKKTVector(VT, n, m, nlb, nub, ind_lb, ind_ub)
+    _w1 = UnreducedKKTVector(VT, n, m, nlb, nub, ind_lb, ind_ub)
+    _w2 = UnreducedKKTVector(VT, n, m, nlb, nub, ind_lb, ind_ub)
+    _w3 = UnreducedKKTVector(VT, n, m, nlb, nub, ind_lb, ind_ub)
+    _w4 = UnreducedKKTVector(VT, n, m, nlb, nub, ind_lb, ind_ub)
+
+    jacl = VT(undef,n)
+    c_trial = VT(undef, m)
+    y = VT(undef, m)
+    c = VT(undef, m)
+    rhs = VT(undef, m)
+
+    c_slk = view(c,cb.ind_ineq)
+    x_lr = view(full(x), cb.ind_lb)
+    x_ur = view(full(x), cb.ind_ub)
+    xl_r = view(full(xl), cb.ind_lb)
+    xu_r = view(full(xu), cb.ind_ub)
+    zl_r = view(full(zl), cb.ind_lb)
+    zu_r = view(full(zu), cb.ind_ub)
+    x_trial_lr = view(full(x_trial), cb.ind_lb)
+    x_trial_ur = view(full(x_trial), cb.ind_ub)
+    dx_lr = view(d.xp, cb.ind_lb) # TODO
+    dx_ur = view(d.xp, cb.ind_ub) # TODO
+
+    inertia_correction_method = if opt_ipm.inertia_correction_method == InertiaAuto
+        is_inertia(kkt.linear_solver)::Bool ? InertiaBased : InertiaFree
+    else
+        opt_ipm.inertia_correction_method
+    end
+
+    inertia_corrector = build_inertia_corrector(
+        inertia_correction_method,
+        VT,
+        n, m, nlb, nub, ind_lb, ind_ub
+    )
+
+    cnt.init_time = time() - cnt.start_time
+
+    return MadNLPSolver(
+        nlp, cb, kkt,
+        opt_ipm, cnt, logger,
+        n, m, nlb, nub,
+        x, y, zl, zu, xl, xu,
+        zero(T), f, c,
+        jacl,
+        d, p,
+        _w1, _w2, _w3, _w4,
+        x_trial, c_trial, zero(T), c_slk, rhs,
+        cb.ind_ineq, cb.ind_fixed, cb.ind_llb, cb.ind_uub,
+        x_lr, x_ur, xl_r, xu_r, zl_r, zu_r, dx_lr, dx_ur, x_trial_lr, x_trial_ur,
+        iterator,
+        zero(T), zero(T), zero(T), zero(T), zero(T), zero(T), zero(T), zero(T), zero(T), zero(T),
+        " ",
+        zero(T), zero(T), zero(T),
+        Tuple{T, T}[],
+        inertia_corrector, nothing,
+        opt_ipm.intermediate_callback,
+        INITIAL, Dict(),
+    )
+end
+
+"""
     MadNLPSolver(nlp::AbstractNLPModel{T, VT}; options...) where {T, VT}
 
 Instantiate a new `MadNLPSolver` associated to the nonlinear program
@@ -122,7 +247,6 @@ algorithm, so the main algorithm remains allocation free.
 
 """
 function MadNLPSolver(nlp::AbstractNLPModel{T,VT}; kwargs...) where {T, VT}
-
     options = load_options(nlp; kwargs...)
 
     ipm_opt = options.interior_point
@@ -165,7 +289,7 @@ function MadNLPSolver(nlp::AbstractNLPModel{T,VT}; kwargs...) where {T, VT}
     )
 
     @trace(logger,"Initializing iterative solver.")
-    iterator = ipm_opt.iterator(kkt; cnt = cnt, logger = logger, opt = options.iterative_refinement)
+    iterator = iterator(options.iterative_refinement, kkt; cnt = cnt, logger = logger)
 
     x = PrimalVector(VT, nx, ns, ind_lb, ind_ub)
     xl = PrimalVector(VT, nx, ns, ind_lb, ind_ub)

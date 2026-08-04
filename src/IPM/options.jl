@@ -114,18 +114,19 @@ barrier                        | [`MonotoneUpdate`](@ref) | algorithm to update 
 tau\\_min                      | 0.99                 | lower bound on fraction-to-the-boundary parameter tau
 ||
 """
-@kwdef mutable struct MadNLPOptions{T} <: AbstractOptions
+@kwdef mutable struct MadNLPOptions{T, LS<:AbstractOptions, ITER<:AbstractOptions} <: AbstractOptions
     # Primary options
     tol::T
     callback::Type
     kkt_system::Type
     linear_solver::Type
+    linear_solver_options::LS
+    iterator_options::ITER
 
     # General options
     rethrow_error::Bool = true
     disable_garbage_collector::Bool = false
     blas_num_threads::Int = 1
-    iterator::Type = RichardsonIterator
     intermediate_callback::AbstractUserCallback = NoUserCallback()
 
     # Output options
@@ -206,19 +207,24 @@ end
 is_dense_callback(nlp) = !nlp.meta.sparse_jacobian && !nlp.meta.sparse_hessian
 
 # smart option presets
-function MadNLPOptions{T}(
-    nlp::AbstractNLPModel{T};
+function MadNLPOptions(
+    nlp::AbstractNLPModel{T},
+    ;
     dense_callback = MadNLP.is_dense_callback(nlp),
-    callback = dense_callback ? DenseCallback : SparseCallback,
     kkt_system = dense_callback ? DenseCondensedKKTSystem : SparseKKTSystem,
+    tol::T = get_tolerance(T,kkt_system),
+    linear_solver_options::LS = dense_callback ? LapackOptions() : default_sparse_solver(nlp)(),
+    iterator_options::ITER = RichardsonOptions(richardson_tol=tol^(5/4), richardson_acceptable_tol=tol^(5/8)),
+    callback = dense_callback ? DenseCallback : SparseCallback,
     linear_solver = dense_callback ? LapackCPUSolver : default_sparse_solver(nlp),
-    tol = get_tolerance(T,kkt_system)
-) where {T}
-    return MadNLPOptions{T}(
+) where {T,LS,ITER}
+    return MadNLPOptions{T,LS,ITER}(
         tol = tol,
         callback = callback,
         kkt_system = kkt_system,
         linear_solver = linear_solver,
+        linear_solver_options = linear_solver_options,
+        iterator_options = iterator_options,
     )
 end
 

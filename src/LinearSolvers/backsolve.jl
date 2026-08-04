@@ -24,6 +24,8 @@ end
 
 default_options(::Type{RichardsonIterator}, tol) = RichardsonOptions(richardson_tol=tol^(5/4), richardson_acceptable_tol=tol^(5/8))
 
+iterator(opt::RichardsonOptions, kkt; logger = MadNLPLogger(), cnt = MadNLPCounters()) = RichardsonIterator(kkt; opt=opt, logger=logger, cnt=cnt)
+
 function solve_refine!(
     x::VT,
     iterator::R,

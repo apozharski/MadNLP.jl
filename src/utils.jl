@@ -1,4 +1,8 @@
+# Options types
 abstract type AbstractOptions end
+abstract type LinearSolverOptions <: AbstractOptions end
+abstract type IteratorOptions <: AbstractOptions end
+
 
 # Pass MadNLP current status to the user callback
 abstract type AbstractUserCallbackStatus end
