@@ -129,6 +129,7 @@ has been factorized previously.
 """
 function solve_refine! end
 
+
 # LinearSolverExceptions
 struct SymbolicException <: Exception end
 struct FactorizationException <: Exception end
@@ -158,6 +159,8 @@ include("lapack_common.jl")
 include("lapack.jl")
 include("ldl.jl")
 include("mumps.jl")
+
+linear_solver(opts::MumpsOptions) = MumpsSolver
 
 # These solvers are only available if Julia was built with SuiteSparse,
 # which is GPL.  If not, then the `using`s here will fail.

@@ -119,7 +119,6 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     tol::T
     callback::Type
     kkt_system::Type
-    linear_solver::Type
     linear_solver_options::LS
     iterator_options::ITER
 
@@ -216,13 +215,11 @@ function MadNLPOptions(
     linear_solver_options::LS = dense_callback ? LapackOptions() : default_sparse_solver(nlp)(),
     iterator_options::ITER = RichardsonOptions(richardson_tol=tol^(5/4), richardson_acceptable_tol=tol^(5/8)),
     callback = dense_callback ? DenseCallback : SparseCallback,
-    linear_solver = dense_callback ? LapackCPUSolver : default_sparse_solver(nlp),
 ) where {T,LS,ITER}
     return MadNLPOptions{T,LS,ITER}(
         tol = tol,
         callback = callback,
         kkt_system = kkt_system,
-        linear_solver = linear_solver,
         linear_solver_options = linear_solver_options,
         iterator_options = iterator_options,
     )

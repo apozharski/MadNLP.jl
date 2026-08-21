@@ -156,7 +156,7 @@ function MadNLPSolver(nlp::AbstractNLPModel{T,VT}, opt_ipm::MadNLPOptions{T}) wh
     kkt = create_kkt_system(
         opt_ipm.kkt_system,
         cb,
-        opt_ipm.linear_solver;
+        linear_solver(opt_ipm.linear_solver_options);
         hessian_approximation=opt_ipm.hessian_approximation,
         opt_linear_solver=opt_ipm.linear_solver_options,
         qn_options=opt_ipm.quasi_newton_options,
