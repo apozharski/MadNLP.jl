@@ -10,7 +10,7 @@ MadNLP = "2621e9c9-9eb4-46b1-8089-e8c72242dfb6"
 [compat]
 HSL = "0.5.3"
 LinearAlgebra = "1.9"
-MadNLP = "0.10"
+MadNLP = "0.10, 0.11"
 MadNLPTests = "0.6"
 Quadmath = "0.5.10, 1.0.1"
 Test = "1.9"
